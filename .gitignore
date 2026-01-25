@@ -1,0 +1,40 @@
+# Sensitive data - DO NOT COMMIT
+config.yaml
+config.nas.yaml
+data/
+flagged/
+logs/
+signatures/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# IDE/Editor
+.claude/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temp files
+*.tmp
+*.temp
+~$*
+Z*~*.PDF
+ZSKVFT~S/
+ZU8JAX~5/
+
+# Environment
+.env
+.venv/
+venv/
+ENV/
+
+# OS
+.DS_Store
+Thumbs.db
