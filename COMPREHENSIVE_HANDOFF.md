@@ -111,6 +111,31 @@ JOBS_ROOT = cfg.jobs_folder
 INDEX_PATH = cfg.job_index_file
 ```
 
+## Bug 4: QBO Project Creation Missing (CRITICAL)
+
+**Problem:** When a job is created, it does NOT create a project in QuickBooks Online. This is CRITICAL functionality.
+
+**Required behavior:**
+1. When `job_create` is called, it MUST create a QBO project with the job number as the name
+2. The invoice must be linked to that project
+3. The project name should match the job number format (e.g., "26-001")
+
+**This is absolutely critical for proper job tracking and financial organization.**
+
+## Bug 5: Estimate Description Format Wrong
+
+**Problem:** When an estimate is created, the description doesn't follow the required format.
+
+**Required format:** The service description (e.g., "Real Property Report") should include the property address with ", NL" appended.
+
+**Example:**
+```
+Service: Real Property Report
+Description: 123 Main Street, Paradise, NL
+```
+
+NOT just "Real Property Report" without address context.
+
 ---
 
 # SECTION 4: WORKFLOW ISSUES TO FIX
@@ -297,35 +322,53 @@ environment:
 
 # SECTION 9: ACTION PLAN
 
-## Phase 1: Path Fixes (Critical - Nothing Works Without This)
-1. [ ] Audit ALL Python files for hardcoded paths
-2. [ ] Update `nightly_refresh.py` to use config_loader
-3. [ ] Update `qbo_sync.py` to use config_loader
-4. [ ] Update `hive_mind_prompt.py` - replace Z:\ with /volume1/ in all examples
-5. [ ] Check if `_translate_path()` is still needed after above fixes
-6. [ ] Migrate any Z:\ paths in job_index.json to /volume1/ format
+## Phase 1: Read ALL Files First
+1. [ ] Read and understand EVERY file listed in Section 12
+2. [ ] Document any additional issues found during review
+3. [ ] Create mental map of how all components connect
 
-## Phase 2: Tool Fixes
-7. [ ] Fix `_nas_list_directory` to be fully recursive
-8. [ ] Fix `_nas_search_files` to be fully recursive
-9. [ ] Audit all NAS tools for correct behavior
+## Phase 2: Path Fixes (Critical - Nothing Works Without This)
+4. [ ] Audit ALL Python files for hardcoded paths (Z:\, H:\, etc.)
+5. [ ] Update `nightly_refresh.py` to use config_loader
+6. [ ] Update `qbo_sync.py` to use config_loader
+7. [ ] Update `hive_mind_prompt.py` - replace Z:\ with /volume1/ in all examples
+8. [ ] Update all utility scripts (query_*.py, etc.) to use config_loader
+9. [ ] Check if `_translate_path()` is still needed after above fixes
+10. [ ] Migrate any Z:\ paths in job_index.json to /volume1/ format
 
-## Phase 3: Workflow Fixes
-10. [ ] Update system prompt with quote vs job reasoning guidance
-11. [ ] Add "always ask Nick for pricing" rule to prompt
-12. [ ] Add email folder + mark unread logic to proposal workflow
+## Phase 3: Tool Fixes
+11. [ ] Fix `_nas_list_directory` to be fully recursive for ALL folders
+12. [ ] Fix `_nas_search_files` to be fully recursive
+13. [ ] Audit all NAS tools for correct behavior
+14. [ ] **FIX QBO PROJECT CREATION** - job_create MUST create QBO project with job number
+15. [ ] **FIX ESTIMATE DESCRIPTION** - description must be "Address, NL" format
+16. [ ] Verify invoice links to project correctly
 
-## Phase 4: New Features
-13. [ ] Design job cancellation feature (discuss with Nick first)
-14. [ ] Implement job cancellation
+## Phase 4: Workflow Fixes
+17. [ ] Update system prompt with quote vs job reasoning guidance
+18. [ ] Add "always ask Nick for pricing" rule to prompt
+19. [ ] Add Holyrood to metro areas list in prompt
+20. [ ] Add HUMAN safe word detection logic
+21. [ ] **FIX email folder + MARK UNREAD logic** - CRITICAL for pipeline visibility
+22. [ ] Ensure proposal_update moves email AND marks unread
 
-## Phase 5: Testing
-15. [ ] Test path access (can Claude read /volume1/... paths?)
-16. [ ] Test proposal workflow
-17. [ ] Test estimate workflow
-18. [ ] Test job creation
-19. [ ] Test Data Sync integration
-20. [ ] Test email folder organization
+## Phase 5: New Features
+23. [ ] Design job cancellation feature (discuss with Nick first)
+24. [ ] Implement job cancellation (update job_index, QBO project, delete invoice)
+
+## Phase 6: Comprehensive Testing (DO NOT SKIP)
+25. [ ] Run ALL test files (see Section 13)
+26. [ ] Test ALL paths resolve correctly
+27. [ ] Test EVERY NAS tool
+28. [ ] Test EVERY proposal tool
+29. [ ] Test EVERY estimate tool (verify description format!)
+30. [ ] Test EVERY job tool (verify QBO project created!)
+31. [ ] Test EVERY email tool (verify mark unread works!)
+32. [ ] Test full quote inquiry workflow end-to-end
+33. [ ] Test full confirmed job workflow end-to-end
+34. [ ] Test email pipeline with UNREAD marking
+35. [ ] Test edge cases (cancellation, duplicates, errors)
+36. [ ] Run orchestrator in dry-run mode with test emails
 
 ---
 
@@ -376,22 +419,245 @@ This is an example of what went WRONG and what SHOULD happen:
 
 6. **Timestamps matter** - Every section update needs `_updated`
 
+7. **Metro areas include Holyrood** - St. John's metro includes: St. John's, Mount Pearl, Paradise, Conception Bay South, Portugal Cove-St. Philip's, Torbay, Logy Bay-Middle Cove-Outer Cove, Pouch Cove, Flatrock, Petty Harbour-Maddox Cove, Bay Bulls, Witless Bay, **Holyrood**
+
+8. **"HUMAN" safe word** - If Nick includes "HUMAN" in his email signature or message, it means he wants to handle this personally - flag it and don't auto-respond
+
+9. **ALWAYS mark emails UNREAD** - When moving emails between proposal folders, ALWAYS mark them as UNREAD. This is how Nick tracks pipeline counts at a glance. This is CRITICAL for workflow visibility.
+
 ---
 
-# SECTION 12: KEY FILES TO REVIEW
+# SECTION 12: ALL FILES TO REVIEW
 
-| File | Purpose | Priority |
-|------|---------|----------|
-| `tool_executor.py` | All tool implementations (~4200 lines) | HIGH |
-| `hive_mind_prompt.py` | System prompt - Claude's brain | HIGH |
-| `config_loader.py` | Centralized config | HIGH |
-| `orchestrator.py` | Main email processing loop | MEDIUM |
-| `nightly_refresh.py` | Job index refresh (needs fix) | HIGH |
-| `qbo_sync.py` | QBO sync (needs fix) | HIGH |
-| `notification_watcher.py` | Data Sync events | MEDIUM |
+**IMPORTANT: You must review ALL of these files. Do not skip any.**
+
+## Core Application Files (MUST READ FIRST)
+
+| File | Purpose | Check For |
+|------|---------|-----------|
+| `tool_executor.py` | All 43+ tool implementations (~4200 lines) | Hardcoded paths, path translation, NAS tools |
+| `hive_mind_prompt.py` | System prompt - Claude's operational brain | Z:\ examples, workflow logic, reasoning guidance |
+| `config_loader.py` | Centralized configuration singleton | Default paths (fallbacks), all properties |
+| `orchestrator.py` | Main email processing loop | Config usage, path handling |
+| `claude_agent.py` | Claude API integration | Config usage, prompt loading |
+| `claude_parser.py` | Response parsing from Claude | Tool call handling |
+| `qbo_integration.py` | QuickBooks Online API integration | Project creation, estimate/invoice logic |
+| `email_service.py` | Microsoft Graph email integration | Token paths, folder operations |
+| `job_manager.py` | Job folder and index management | Path handling, job creation |
+| `signatures.py` | Email signature handling | HUMAN safe word detection |
+| `tools_definition.py` | Tool schema definitions for Claude | Tool parameter schemas |
+
+## Scripts Needing Path Fixes (HIGH PRIORITY)
+
+| File | Purpose | Known Issues |
+|------|---------|--------------|
+| `nightly_refresh.py` | Nightly job index refresh | Hardcoded Z:\, H:\ paths |
+| `qbo_sync.py` | QBO data synchronization | Hardcoded Z:\, H:\ paths |
+| `notification_watcher.py` | Data Sync event monitoring | Check path handling |
+| `migrate_job_index.py` | Job index migration utility | Path migration logic |
+
+## Utility/Query Scripts (CHECK ALL)
+
+| File | Purpose |
+|------|---------|
+| `query_job.py`, `query_job2.py` | Job lookup utilities |
+| `query_email.py`, `query_email2.py`, `query_email3.py` | Email query utilities |
+| `query_customer.py`, `query_customer2.py` | Customer lookup utilities |
+| `query_qbo.py` | QBO query utility |
+| `find_original_email.py`, `find_email2.py` | Email search utilities |
+| `audit_check.py`, `audit_index.py` | Audit utilities |
+| `check_timestamps.py` | Timestamp verification |
+| `show_job_coverage.py` | Job coverage reporting |
+| `show_hive.py` | Hive Mind status display |
+| `diagnostics.py` | System diagnostics |
+| `sample_index.py` | Sample job index generator |
+| `timesheet_queue.py` | Timesheet queue handling |
+| `send_test_email.py` | Test email sender |
+
+## Test Files (RUN ALL AFTER CHANGES)
+
+| File | Purpose |
+|------|---------|
+| `test_executor.py` | Tool executor tests |
+| `test_comprehensive.py` | Comprehensive integration tests |
+| `test_job_structure.py` | Job structure validation |
+| `test_job_create.py` | Job creation tests |
+| `test_qbo.py` | QBO integration tests |
+| `test_qbo_enrichment.py` | QBO enrichment tests |
+| `test_email.py` | Email functionality tests |
+| `test_email_link.py` | Email linking tests |
+| `test_emails_in_status.py` | Email status tests |
+| `test_auth.py` | Authentication tests |
+| `test_token_simple.py` | Token handling tests |
+| `test_token_comparison.py` | Token comparison tests |
+| `test_hive.py` | Hive Mind core tests |
+| `test_hive_mind.py` | Full Hive Mind tests |
+| `test_dryrun.py` | Dry run mode tests |
+| `test_agent_harness.py` | Agent harness tests |
+| `test_api_simulation.py` | API simulation tests |
+| `test_async_qa.py` | Async Q&A tests |
+| `test_doc_control.py` | Document control tests |
+| `test_field_status.py` | Field status tests |
+| `test_real_field_status.py` | Real field status tests |
+| `test_file_read.py` | File read tests |
+| `test_import.py`, `test_import2.py` | Import tests |
+| `test_integration_quick.py` | Quick integration tests |
+| `test_payment_recording.py` | Payment recording tests |
+| `test_prompt_versions.py` | Prompt version tests |
+| `test_recent_changes.py` | Recent changes tests |
+| `test_refresh_timestamps.py` | Refresh timestamp tests |
+| `test_reply_guard.py` | Reply guard tests |
+
+## Configuration Files
+
+| File | Purpose |
+|------|---------|
+| `docker-compose.yml` | Docker container configuration |
+| `config.yaml` | Local/Windows configuration (template) |
+| `config.nas.yaml` | NAS/Docker configuration (production) |
+
+---
+
+# SECTION 13: COMPREHENSIVE TESTING REQUIREMENTS
+
+**After making ALL changes, you MUST test EVERYTHING. Do not skip any tests.**
+
+## Phase 1: Unit Tests
+Run every test file:
+```bash
+python -m pytest test_*.py -v
+```
+
+If pytest is not available, run each test file individually:
+```bash
+python test_executor.py
+python test_comprehensive.py
+python test_job_create.py
+# ... etc for ALL test files
+```
+
+## Phase 2: Path Verification Tests
+
+Test that ALL paths resolve correctly:
+```python
+from config_loader import get_config
+cfg = get_config()
+
+# Verify all paths exist and are accessible
+paths_to_check = [
+    cfg.base_path,
+    cfg.jobs_folder,
+    cfg.data_sync_folder,
+    cfg.proposals_folder,
+    cfg.flagged_folder,
+    cfg.job_index_file,
+    cfg.token_cache_graph,
+    cfg.token_cache_qbo,
+]
+
+import os
+for path in paths_to_check:
+    exists = os.path.exists(path)
+    print(f"{path}: {'EXISTS' if exists else 'MISSING'}")
+```
+
+## Phase 3: Tool Execution Tests
+
+Test each tool category works end-to-end:
+
+### NAS Tools
+- [ ] `nas_list_directory` - List /volume1/Pardy Surveys/Jobs/2026/
+- [ ] `nas_read_file` - Read a known file
+- [ ] `nas_file_exists` - Check existing and non-existing paths
+- [ ] `nas_search_files` - Search for *.pdf in a job folder
+- [ ] `nas_create_directory` - Create test folder, then delete
+- [ ] `nas_write_file` - Write test file, read back, delete
+- [ ] `nas_copy_file` - Copy a file, verify, delete
+
+### Proposal Tools
+- [ ] `proposal_create` - Create test proposal
+- [ ] `proposal_get` - Retrieve the proposal
+- [ ] `proposal_update` - Update status to each state
+- [ ] `proposal_search` - Find by client name
+- [ ] `proposal_list` - List by status
+- [ ] `proposal_convert_to_job` - Convert to job (with cleanup)
+
+### Estimate Tools
+- [ ] `qbo_create_estimate` - Create test estimate (verify description format!)
+- [ ] `qbo_get_estimate` - Retrieve estimate
+- [ ] `qbo_search_estimates` - Search estimates
+- [ ] `qbo_send_estimate` - Send to test email (or dry run)
+- [ ] `qbo_convert_estimate_to_invoice` - Convert (with cleanup)
+
+### Job Tools
+- [ ] `job_create` - Create test job (verify QBO project created!)
+- [ ] `job_search` - Find the job
+- [ ] `job_get_status` - Get comprehensive status
+- [ ] `job_link_email` - Link a test email
+- [ ] `job_save_email` - Save email to folder
+
+### Email Tools
+- [ ] `email_get_unread` - Get unread emails
+- [ ] `email_search` - Search for known email
+- [ ] `email_get_by_id` - Get specific email
+- [ ] `email_move_to_folder` - Move to test folder
+- [ ] `email_mark_unread` - Mark as unread (verify!)
+- [ ] `email_send_reply` - Send test reply (or dry run)
+
+## Phase 4: Workflow Tests
+
+### Quote Inquiry Workflow (Full Path)
+1. Simulate quote inquiry email
+2. Verify proposal created with status "new"
+3. Update with client info → status "awaiting_info"
+4. Simulate info received → status "awaiting_pricing"
+5. Verify email sent to Nick for pricing
+6. Simulate Nick's price reply
+7. Verify estimate created with correct description format
+8. Verify estimate sent to client
+9. Simulate acceptance
+10. Verify job created with QBO project
+11. Verify invoice linked to project
+
+### Confirmed Job Workflow (Full Path)
+1. Simulate law firm email with closing date
+2. Verify job created immediately (not proposal)
+3. Verify QBO project created
+4. Verify invoice created and linked
+5. Verify job folder created with correct structure
+
+### Email Pipeline Workflow
+1. Create proposal
+2. Move to "New" folder, verify marked UNREAD
+3. Update to "Awaiting Info", verify moved and marked UNREAD
+4. Update to "Awaiting Pricing", verify moved and marked UNREAD
+5. Update to "Quoted", verify moved and marked UNREAD
+6. Convert to job, verify moved to appropriate folder
+
+## Phase 5: Edge Case Tests
+
+- [ ] Job cancellation (when implemented)
+- [ ] Duplicate email prevention
+- [ ] Error handling for missing paths
+- [ ] Error handling for QBO API failures
+- [ ] HUMAN safe word detection
+- [ ] Reply to reply threading
+
+## Phase 6: Integration Test
+
+Run the full orchestrator in dry-run mode with test emails:
+```bash
+python orchestrator.py --dry-run --test-emails
+```
+
+Verify:
+- All emails processed without errors
+- Correct workflow chosen for each email type
+- No path errors
+- All tools execute successfully
 
 ---
 
 **END OF COMPREHENSIVE HANDOFF**
 
-Start by reading the key files, then work through the action plan systematically. Ask Nick if anything is unclear before making changes.
+Start by reading ALL the files listed above. Understand the system completely before making any changes. Then work through the action plan systematically. Test EVERYTHING after changes. Ask Nick if anything is unclear before making changes.
